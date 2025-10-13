@@ -96,11 +96,41 @@ def get_courses(ws_source, group_col):
         for col in range(1, group_col):
             source_cell = ws_source.cell(row=ro, column=col)
             source_cell_value = str(source_cell.value).lower()
-            if "c s" in source_cell_value:
-                courses_list.update({source_cell_value:[ro,col]})                
+            if "c s" in source_cell_value or "p p" in source_cell_value or "p i" in source_cell_value:
+                courses_list.update({source_cell_value:ro})                
 
     return courses_list
 
+def get_cells(ws_source, group_col):
+    cells_list = {}
+
+    for ro in range(1, ws_source.max_row):
+        source_cell = ws_source.cell(row=ro, column=group_col)
+        source_cell_value = str(source_cell.value).lower()
+
+        if source_cell_value:
+            cells_list.update({source_cell_value:ro})
+    
+    return cells_list
+
+def get_weekdays(ws_source):
+    weekdays = {
+    "luni" : [],
+    "marți" : [],
+    "miercuri" : [],
+    "joi" : [],
+    "vineri": []
+    }
+
+    for ro in range(1, ws_source.max_row):
+        for col in range(1, ws_source.max_column):
+            source_cell = ws_source.cell(row=ro, column=col)
+            source_cell_value = str(source_cell.value).lower()
+
+            if source_cell_value in weekdays:
+                weekdays[source_cell_value] = ro
+
+    return weekdays
 
 def extract_table():
     
@@ -120,38 +150,30 @@ def extract_table():
     ws_source = wb_general.worksheets[wb_general.sheetnames.index(sheet_name)]
     
 
-    merged_cells_list = [str(item).split(":") for item in ws_source.merged_cells]
-
-    #create the workbook
-    wb_personal = create_table()
-
-    
-    
-    weekdays = {
-    "luni" : [],
-    "marți" : [],
-    "miercuri" : [],
-    "joi" : [],
-    "vineri": []
-    }
+ 
 
     #get the column pozition in which your group is situated
     group_col = get_group_col(ws_source)
 
     #extract only the courses the group attends
     courses_list = get_courses(ws_source, group_col)
-
     print(courses_list)
     
-    for ro in range(1, ws_source.max_row):
-        source_cell = ws_source.cell(row=ro, column=group_col)
-        source_cell_value = str(source_cell.value).lower()
+    #extract all the cells 
+    cells_list = get_cells(ws_source, group_col)
+    print(cells_list)
 
+    #extract the weekdays positions
+    weekdays = get_weekdays(ws_source)
+    print(weekdays)
+
+    #create the workbook
+    wb_personal = create_table(ws_source, courses_list, cells_list, group_col, weekdays)
 
     #save to file
     wb_personal.save("table.xlsx")
 
-def create_table():
+def create_table(ws_source, courses_list, cells_list, group_col, weekdays):
       #create the workbook
     wb_personal = openpyxl.Workbook()
 
@@ -182,11 +204,105 @@ def create_table():
                                                                             bottom=openpyxl.styles.Side(border_style="thin", color="000000"),
                                                                             top=openpyxl.styles.Side(border_style="thin", color="000000"))
 
-    #!!!fa niste calcule sa vezi cate litere are fiecare coloana si in functie de dimensiune seteaza un width corespunzator
+    
     for i in range(1, 7):
         size = len(str(ws_personal.cell(row=1, column=i).value))
         letter = get_column_letter(i)
         ws_personal.column_dimensions[letter].width = (size + 2) * 1.2
+
+    #create monday column(using courses and projects)
+    for course in courses_list:
+        if int(courses_list[course]) >= int(weekdays["luni"]) and int(courses_list[course] <= int(weekdays["luni"]) + 11):
+            if courses_list[course] == weekdays["luni"]:
+                ws_personal.cell(row=weekdays["luni"], column=group_col).value = course    
+            else:
+                hour = 2 + int(courses_list[course]) - int(weekdays["luni"])
+                ws_personal.cell(row=hour, column=2).value = course
+
+    #creating monday column(using the labs and the rest)
+    for cell in cells_list:
+        if int(cells_list[cell]) >= int(weekdays["luni"]) and int(cells_list[cell] <= int(weekdays["luni"]) + 11):
+            if cells_list[cell] == weekdays["luni"]:
+                ws_personal.cell(row=weekdays["luni"], column=group_col).value = cell    
+            else:
+                hour = 2 + int(cells_list[cell]) - int(weekdays["luni"])
+                ws_personal.cell(row=hour, column=2).value = cell
+
+
+    #create tuesday column(using courses and projects)
+    for course in courses_list:
+        if int(courses_list[course]) >= int(weekdays["marți"]) and int(courses_list[course] <= int(weekdays["luni"]) + 11):
+            if courses_list[course] == weekdays["marți"]:
+                ws_personal.cell(row=weekdays["marți"], column=group_col).value = course    
+            else:
+                hour = 2 + int(courses_list[course]) - int(weekdays["marți"])
+                ws_personal.cell(row=hour, column=3).value = course
+
+    #creating tuesday column(using the labs and the rest)
+    for cell in cells_list:
+        if int(cells_list[cell]) >= int(weekdays["marți"]) and int(cells_list[cell] <= int(weekdays["marți"]) + 11):
+            if cells_list[cell] == weekdays["marți"]:
+                ws_personal.cell(row=weekdays["marți"], column=group_col).value = cell    
+            else:
+                hour = 2 + int(cells_list[cell]) - int(weekdays["marți"])
+                ws_personal.cell(row=hour, column=3).value = cell
+
+    #create mwednesday column(using courses and projects)
+    for course in courses_list:
+        if int(courses_list[course]) >= int(weekdays["miercuri"]) and int(courses_list[course] <= int(weekdays["miercuri"]) + 11):
+            if courses_list[course] == weekdays["miercuri"]:
+                ws_personal.cell(row=weekdays["miercuri"], column=group_col).value = course    
+            else:
+                hour = 2 + int(courses_list[course]) - int(weekdays["miercuri"])
+                ws_personal.cell(row=hour, column=4).value = course
+
+    #creating wednesday column(using the labs and the rest)
+    for cell in cells_list:
+        if int(cells_list[cell]) >= int(weekdays["miercuri"]) and int(cells_list[cell] <= int(weekdays["miercuri"]) + 11):
+            if cells_list[cell] == weekdays["miercuri"]:
+                ws_personal.cell(row=weekdays["miercuri"], column=group_col).value = cell    
+            else:
+                hour = 2 + int(cells_list[cell]) - int(weekdays["miercuri"])
+                ws_personal.cell(row=hour, column=4).value = cell
+
+    #create thursday column(using courses and projects)
+    for course in courses_list:
+        if int(courses_list[course]) >= int(weekdays["joi"]) and int(courses_list[course] <= int(weekdays["joi"]) + 11):
+            if courses_list[course] == weekdays["joi"]:
+                ws_personal.cell(row=weekdays["joi"], column=group_col).value = course    
+            else:
+                hour = 2 + int(courses_list[course]) - int(weekdays["joi"])
+                ws_personal.cell(row=hour, column=5).value = course
+
+    #creating thursday column(using the labs and the rest)
+    for cell in cells_list:
+        if int(cells_list[cell]) >= int(weekdays["joi"]) and int(cells_list[cell] <= int(weekdays["joi"]) + 11):
+            if cells_list[cell] == weekdays["joi"]:
+                ws_personal.cell(row=weekdays["joi"], column=group_col).value = cell    
+            else:
+                hour = 2 + int(cells_list[cell]) - int(weekdays["joi"])
+                ws_personal.cell(row=hour, column=5).value = cell
+
+    #create friday column(using courses and projects)
+    for course in courses_list:
+        if int(courses_list[course]) >= int(weekdays["vineri"]) and int(courses_list[course] <= int(weekdays["vineri"]) + 11):
+            if courses_list[course] == weekdays["vineri"]:
+                ws_personal.cell(row=weekdays["vineri"], column=group_col).value = course    
+            else:
+                hour = 2 + int(courses_list[course]) - int(weekdays["vineri"])
+                ws_personal.cell(row=hour, column=6).value = course
+
+    #creating friday column(using the labs and the rest)
+    for cell in cells_list:
+        if int(cells_list[cell]) >= int(weekdays["vineri"]) and int(cells_list[cell] <= int(weekdays["vineri"]) + 11):
+            if cells_list[cell] == weekdays["vineri"]:
+                ws_personal.cell(row=weekdays["vineri"], column=group_col).value = cell    
+            else:
+                hour = 2 + int(cells_list[cell]) - int(weekdays["vineri"])
+                ws_personal.cell(row=hour, column=6).value = cell
+
+
+
 
     return wb_personal
 
