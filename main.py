@@ -43,42 +43,7 @@ def get_file():
         f.write(response.content)
 
 
-def extract_table():
-    
-    wb_general = openpyxl.load_workbook(filename="orar_full.xlsx")
-
-    sheet_name = ""
-
-    print(f"Choose an year and specialization from the list: {wb_general.sheetnames}")
-    sheet_name = input()
-
-    while(sheet_name not in wb_general.sheetnames):
-        print("Doesnt fit any of the ones in the list! Please write one from the list!")
-        print(wb_general.sheetnames)
-        sheet_name = input()
-
-
-    ws_source = wb_general.worksheets[wb_general.sheetnames.index(sheet_name)]
-    
-
-    merged_cells_list = [str(item).split(":") for item in ws_source.merged_cells]
-
-    #create the workbook
-    wb_personal = create_table()
-
-    #select the only sheet in the workbook
-    # ws_personal = wb_personal.active
-  
-    # ws_personal = create_table()
-
-    #get the dimensions of the 'table' from the source file for copying
-    # mr = ws_source.rows
-    # mc = ws_source.max_column
-    
-    #go through every cell in the table and extract the info
-    # source_rows = list(ws_source.rows)
-    # source_cols = list(ws_source.columns)
-    # print(list(ws_source.rows)[0])
+def merged_cells_sublists(merged_cells_list):
 
     #expand the sublist of merged cells to include all the cells that are included in the merge
     for sublist in merged_cells_list:
@@ -105,21 +70,63 @@ def extract_table():
             if i == len(sublist):
                 i = i-1
 
-    for sublist in merged_cells_list:
-        check = True
-        for i in range(0, len(sublist)-1):
-            print(sublist[i][0])
-            print(sublist[i+1][0])
-            if sublist[i][0] != sublist[i+1][0]:
-                check = False
+    return merged_cells_list
 
-        if check:
-            merged_cells_list.remove(sublist)
-        # print(f"after: {sublist}")
+def get_group_col(ws_source):
+
+    print(f"Choose an group/class")
+    group_name = input()
+
+    for ro in range(1, ws_source.max_row):
+        for col in range(1, ws_source.max_column):
+            source_cell = ws_source.cell(row=ro, column=col)
+            source_cell_value = str(source_cell.value).lower()
+
+            if source_cell_value == group_name.lower():
+                group_col = source_cell.column
+
+    return group_col
 
 
-    # print(merged_cells_list)
+def get_courses(ws_source, group_col):
 
+    courses_list = {}
+
+    for ro in range(1, ws_source.max_row):
+        for col in range(1, group_col):
+            source_cell = ws_source.cell(row=ro, column=col)
+            source_cell_value = str(source_cell.value).lower()
+            if "c s" in source_cell_value:
+                courses_list.update({source_cell_value:[ro,col]})                
+
+    return courses_list
+
+
+def extract_table():
+    
+    wb_general = openpyxl.load_workbook(filename="orar_full.xlsx")
+
+    sheet_name = ""
+
+    print(f"Choose an year and specialization from the list: {wb_general.sheetnames}")
+    sheet_name = input()
+
+    while(sheet_name not in wb_general.sheetnames):
+        print("Doesnt fit any of the ones in the list! Please write one from the list!")
+        print(wb_general.sheetnames)
+        sheet_name = input()
+
+
+    ws_source = wb_general.worksheets[wb_general.sheetnames.index(sheet_name)]
+    
+
+    merged_cells_list = [str(item).split(":") for item in ws_source.merged_cells]
+
+    #create the workbook
+    wb_personal = create_table()
+
+    
+    
     weekdays = {
     "luni" : [],
     "marți" : [],
@@ -128,92 +135,17 @@ def extract_table():
     "vineri": []
     }
 
-    print(f"Choose an group/class")
-    group_name = input()
+    #get the column pozition in which your group is situated
+    group_col = get_group_col(ws_source)
 
-    group_col = ""
+    #extract only the courses the group attends
+    courses_list = get_courses(ws_source, group_col)
 
-    for ro in range(1, ws_source.max_row):
-        for col in range(1, ws_source.max_column):
-            source_cell = ws_source.cell(row=ro, column=col)
-            source_cell_value = str(source_cell.value).lower()
-            if source_cell_value in weekdays:
-                # if source_cell_value is "luni":
-                    # ws_personal
-                # print(cell.value)
-                weekdays[source_cell_value] += [f"{ro}"]
-                weekdays[source_cell_value] += [f"{col}"]
-                # print(f"{ro} -> {col}")
-
-            if source_cell_value == group_name.lower():
-                group_col = source_cell.column
-                # group_col = get_column_letter(group_col)
-
-    # print(weekdays)
-
+    print(courses_list)
+    
     for ro in range(1, ws_source.max_row):
         source_cell = ws_source.cell(row=ro, column=group_col)
-        source_cell_value = str(source_cell.value)
-        # cell_coordonates = f"{get_column_letter(ro)}{ro}:{get_column_letter(group_col)}{group_col}"
-        cell_coordonates = f"{get_column_letter(group_col)}{ro}"
-
-        found = (cell_coordonates in sublist for sublist in merged_cells_list)
-        i=0
-        for sublist in merged_cells_list:
-            print(f"{i}:{sublist}")
-            i = i+1
-            if cell_coordonates in sublist:
-                # print(f"{cell_coordonates} -> {sublist}")
-                pass
-                # TODO
-                #dau unmerge la cell-ul merged si extrag textul din primul elem al listei
-                # print(f"source: {source_cell_value}")
-
-                #unmerge
-                # ws_source.unmerge_cells(f"{sublist[0]}:{sublist[-1]}")
-                # print(f"merged source: {ws_source.cell(row=ro, column=ord(sublist[0][0])).value}")
-
-        # if found:
-            # print(source_cell)
-            # print(cell_coordonates)
-            # print(ro)
-
-    
-        # print(source_cell_value)
-
-    # print(merged_cells_list)
-
-    # for cell in source_cols[0]:
-        # if cell.value:
-            # print(cell.value)
-
-    # for cell in source_cols[1]:
-        # if cell.value:
-            # print(cell.value)
-
-    # for row in range(1, ws_source.max_row):
-        # for cell in source_rows[0]:
-            # if cell.value !=  None:
-                # print(cell.value)
-    # for row in range(mr):
-        # for c in range(row):
-            # print(ws_source.c)
-
-
-    # for (row,col), source_cell in ws_source._cells.items():   
-    #     personal_cell = ws_personal.cell(column=col, row=row)
-    #     personal_cell.value = source_cell.value
-    #     personal_cell.data_type = source_cell.data_type
-
-    #     if source_cell.has_style:
-    #         personal_cell.font = copy(source_cell.font)
-    #         personal_cell.border = copy(source_cell.border)
-    #         personal_cell.fill = copy(source_cell.fill)
-    #         personal_cell.number_format = copy(source_cell.number_format)
-    #         personal_cell.protection = copy(source_cell.protection)
-    #         personal_cell.alignment = copy(source_cell.alignment)
-
-
+        source_cell_value = str(source_cell.value).lower()
 
 
     #save to file
