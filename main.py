@@ -99,7 +99,34 @@ def get_courses(ws_source, group_col):
             if "c s" in source_cell_value or "p p" in source_cell_value or "p i" in source_cell_value:
                 courses_list.update({source_cell_value:ro})                
 
-    return courses_list
+
+    #modify the courses_list so that i have the final form of the courses string
+    modified_courses = {}
+    for course in courses_list:
+        if course.find(" (") != -1:
+            index = course.find(" (")
+            first_part = course[index:]
+            
+            index = first_part.find(" s\n")
+            end_index = first_part.rfind(" ")
+            last_part = first_part[end_index:]
+            string = first_part[:index+3] + last_part
+            string = string.replace('(', '')
+            string = string.replace(')', '')
+            modified_courses.update({string:courses_list[course]})
+        else:
+            if course.find(" i ") != -1:
+                index = course.find(" i ")
+                end_index = course.rfind(" ")
+                modified_courses.update({course[:index+2] + course[end_index:]:courses_list[course]})
+            
+            elif course.find("p p ") != -1:
+                index = course.find("p p ")
+                end_index = course.rfind(" ")
+                modified_courses.update({course[:index+3] + course[end_index:]:courses_list[course]})
+
+
+    return modified_courses
 
 def get_cells(ws_source, group_col):
     cells_list = {}
@@ -110,8 +137,17 @@ def get_cells(ws_source, group_col):
 
         if source_cell_value:
             cells_list.update({source_cell_value:ro})
-    
-    return cells_list
+
+    #modify the cells_list so that i have the final form of the courses string
+    modified_cell = {}
+    for cell in cells_list:
+        if cell.find(" l ") != -1:
+            index = cell.rfind(" ")
+            first_index = cell.find("l ")
+            string = cell[:first_index+3] + cell[index:]
+            modified_cell.update({string:cells_list[cell]})
+
+    return modified_cell
 
 def get_weekdays(ws_source):
     weekdays = {
@@ -157,9 +193,13 @@ def extract_table():
 
     #extract only the courses the group attends
     courses_list = get_courses(ws_source, group_col)
-    
+
+
     #extract all the cells 
     cells_list = get_cells(ws_source, group_col)
+
+    
+
 
     #extract the weekdays positions
     weekdays = get_weekdays(ws_source)
@@ -193,19 +233,20 @@ def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekda
 
 def merge_final_cells(ws_personal):
     for col in range(2, ws_personal.max_column + 1):
-        for ro in range(2,ws_personal.max_row + 1):
+        for ro in range(2,ws_personal.max_row):
             personal_cell = ws_personal.cell(row=ro, column=col)
-            personal_cell_value = personal_cell.value
-
-            if personal_cell_value:
-                if "p i" in personal_cell_value or "p p" in personal_cell_value:
-                    ro = ro + 2
-                else:
-                    ws_personal.merge_cells(start_row=ro, start_column=col, end_row=ro+1, end_column=col)
-                    ro = ro + 1
+            next_personal_cell = ws_personal.cell(row=ro+1, column=col)
+            
+            if personal_cell.value:
+                if not next_personal_cell.value:
+                    if "p i" in personal_cell.value or "p p" in personal_cell.value:
+                        ro = ro + 2
+                    else:
+                        ws_personal.merge_cells(start_row=ro, start_column=col, end_row=ro+1, end_column=col)
+                        ro = ro + 1
 
 def create_table(ws_source, courses_list, cells_list, group_col, weekdays):
-      #create the workbook
+    #create the workbook
     wb_personal = openpyxl.Workbook()
 
     #select the only sheet in the workbook
