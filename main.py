@@ -157,15 +157,12 @@ def extract_table():
 
     #extract only the courses the group attends
     courses_list = get_courses(ws_source, group_col)
-    print(courses_list)
     
     #extract all the cells 
     cells_list = get_cells(ws_source, group_col)
-    print(cells_list)
 
     #extract the weekdays positions
     weekdays = get_weekdays(ws_source)
-    print(weekdays)
 
     #create the workbook
     wb_personal = create_table(ws_source, courses_list, cells_list, group_col, weekdays)
@@ -174,12 +171,12 @@ def extract_table():
     wb_personal.save("table.xlsx")
 
 
-def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekdays, group_col, week_col):
+def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekdays, week_col):
     #create monday column(using courses and projects)
     for course in courses_list:
         if int(courses_list[course]) >= int(weekdays[weekday]) and int(courses_list[course] <= int(weekdays[weekday]) + 11):
             if courses_list[course] == weekdays[weekday]:
-                ws_personal.cell(row=weekdays[weekday], column=group_col).value = course    
+                ws_personal.cell(row=2, column=week_col).value = course    
             else:
                 hour = 2 + int(courses_list[course]) - int(weekdays[weekday])
                 ws_personal.cell(row=hour, column=week_col).value = course
@@ -188,11 +185,24 @@ def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekda
     for cell in cells_list:
         if int(cells_list[cell]) >= int(weekdays[weekday]) and int(cells_list[cell] <= int(weekdays[weekday]) + 11):
             if cells_list[cell] == weekdays[weekday]:
-                ws_personal.cell(row=weekdays[weekday], column=group_col).value = cell    
+                ws_personal.cell(row=2, column=week_col).value = cell    
             else:
                 hour = 2 + int(cells_list[cell]) - int(weekdays[weekday])
                 ws_personal.cell(row=hour, column=week_col).value = cell
 
+
+def merge_final_cells(ws_personal):
+    for col in range(2, ws_personal.max_column + 1):
+        for ro in range(2,ws_personal.max_row + 1):
+            personal_cell = ws_personal.cell(row=ro, column=col)
+            personal_cell_value = personal_cell.value
+
+            if personal_cell_value:
+                if "p i" in personal_cell_value or "p p" in personal_cell_value:
+                    ro = ro + 2
+                else:
+                    ws_personal.merge_cells(start_row=ro, start_column=col, end_row=ro+1, end_column=col)
+                    ro = ro + 1
 
 def create_table(ws_source, courses_list, cells_list, group_col, weekdays):
       #create the workbook
@@ -232,11 +242,17 @@ def create_table(ws_source, courses_list, cells_list, group_col, weekdays):
         ws_personal.column_dimensions[letter].width = (size + 2) * 1.2
 
     
-    add_personal_all_data(ws_personal, "luni", courses_list, cells_list, weekdays, group_col, 2)
-    add_personal_all_data(ws_personal, "marți", courses_list, cells_list, weekdays, group_col, 3)
-    add_personal_all_data(ws_personal, "miercuri", courses_list, cells_list, weekdays, group_col, 4)
-    add_personal_all_data(ws_personal, "joi", courses_list, cells_list, weekdays, group_col, 5)
-    add_personal_all_data(ws_personal, "vineri", courses_list, cells_list, weekdays, group_col, 6)
+    add_personal_all_data(ws_personal, "luni", courses_list, cells_list, weekdays, 2)
+    add_personal_all_data(ws_personal, "marți", courses_list, cells_list, weekdays, 3)
+    add_personal_all_data(ws_personal, "miercuri", courses_list, cells_list, weekdays, 4)
+    add_personal_all_data(ws_personal, "joi", courses_list, cells_list, weekdays, 5)
+    add_personal_all_data(ws_personal, "vineri", courses_list, cells_list, weekdays, 6)
+
+    merge_final_cells(ws_personal)
+    merge_final_cells(ws_personal)
+    merge_final_cells(ws_personal)
+    merge_final_cells(ws_personal)
+    merge_final_cells(ws_personal)
 
 
     return wb_personal
