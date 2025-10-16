@@ -10,6 +10,9 @@ DISCLAIMER: The following suggestions are made just for you to make an idea abou
 There could be different ways to install the libraries and run the program. That is just my way of doing it.
 Feel free to do it whatever mode you want to.
 
+! As of for now it doesnt seem to work on Windows systems (at least the ones I tested). 
+
+
 1. clone the repo on your system
 2. create a venv and activate it 
 
