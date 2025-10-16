@@ -181,14 +181,14 @@ def get_weekdays(ws_source):
 
 def set_format_cells(ws_personal):
 
-    for ro in range(2, ws_personal.max_row+1):
-        for col in range(1, ws_personal.max_column+1):
+    for ro in range(1, ws_personal.max_row+1):
+        for col in range(2, ws_personal.max_column+1):
             personal_cell = ws_personal.cell(row=ro, column=col)
             personal_cell.alignment = openpyxl.styles.Alignment(wrap_text=True, horizontal='center', vertical='center')
 
 
 def set_colors(ws_personal, cells_list, courses_list):
-    colors = ["808000", "800000", "008000", "336666", "997a8d", "e3c5c5", "ffa382", "b4f478", "ff9326", "c4acbe"]
+    colors = ["91a567", "f9f3b2", "414931", "b0936e", "b06e6e", "0190ba", "4e2031", "99dfbd", "f4eeee", "f1e5bc"]
     
     groups = {color: [] for color in colors}
 
@@ -223,10 +223,6 @@ def set_colors(ws_personal, cells_list, courses_list):
                         personal_cell.fill = openpyxl.styles.PatternFill(start_color=color, end_color=color, fill_type='solid')
 
 
-    
-    print(groups)
-
-
 def extract_table():
     
     wb_general = openpyxl.load_workbook(filename="orar_full.xlsx")
@@ -257,14 +253,14 @@ def extract_table():
     #extract all the cells 
     cells_list = get_cells(ws_source, group_col)
 
-    
-
+    #have the choice to delete unwanted courses from there
+    remove_unwanted_cells(cells_list, courses_list)
 
     #extract the weekdays positions
     weekdays = get_weekdays(ws_source)
 
     #create the workbook
-    wb_personal = create_table(ws_source, courses_list, cells_list, group_col, weekdays)
+    wb_personal = create_table(courses_list, cells_list, weekdays)
 
     #save to file
     wb_personal.save("table.xlsx")
@@ -305,7 +301,50 @@ def merge_final_cells(ws_personal):
                         ro = ro + 1
 
 
-def create_table(ws_source, courses_list, cells_list, group_col, weekdays):
+def remove_unwanted_cells(cells_list, courses_list):
+
+    print("Do you want to remove some of the contents of your table?")
+    print("Type YES if so, otherwise type NO")
+    if input() == "NO":
+        return
+
+    print("If you want to save the rest of the remaining cells, quit by writing 'EXIT'")
+    print("If you wanna keep going, write 'CONTINUE'")
+
+    choice = input()
+
+    while choice == "CONTINUE":
+        i=0
+        for key in cells_list:
+            i = i+1
+            print(f"{i}. {key}")
+
+        for key in courses_list:
+            i = i+1
+            print(f"{i}. {key}")
+            
+        print("Select which cell to delete!")
+        j = int(input())
+
+        i=0
+        for key in cells_list:
+            i=i+1
+            if i == j:
+                cells_list.pop(key)
+                break
+
+        for key in courses_list:
+            i=i+1
+            if i == j:
+                courses_list.pop(key)
+                break
+        
+        print("If you want to save the rest of the remaining cells, quit by writing 'EXIT'")
+        print("If you wanna keep going, write 'CONTINUE'")
+        choice = input()
+
+
+def create_table(courses_list, cells_list, weekdays):
     #create the workbook
     wb_personal = openpyxl.Workbook()
 
