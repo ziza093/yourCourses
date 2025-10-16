@@ -17,7 +17,7 @@ Feel free to do it whatever mode you want to.
 * go into the dir where the repo is cloned
 * run the following: 
 - python3 -m venv venv
-- source /venv/bin/activate
+- source venv/bin/activate
 
 3. install the missing libraries
 
@@ -32,6 +32,6 @@ Feel free to do it whatever mode you want to.
 
 
 (*) if you want to close the venv, run:
-* deactivates 
+* deactivate
 
 ! Feel free to give feedback on any problems about the installing phase or running phase at: diaconu.gabriel@proton.me
