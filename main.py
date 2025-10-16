@@ -47,7 +47,6 @@ def merged_cells_sublists(merged_cells_list):
 
     #expand the sublist of merged cells to include all the cells that are included in the merge
     for sublist in merged_cells_list:
-        # print(f"before: {sublist}")
         i = 0
         while sublist[i][0] != sublist[-1][0]:
             sublist.insert(i+1,f"{chr(ord(sublist[i][0])+1)}{sublist[i][1:]}")
@@ -58,7 +57,6 @@ def merged_cells_sublists(merged_cells_list):
         if sublist[i-1][1:] != sublist[-1][1:]:
             sublist.insert(i, f"{sublist[-1][0]}{int(sublist[-1][1:])-1}")
 
-        # print(f"after: {sublist}")
         i=0
         while sublist[i][1:] != sublist[-1][1:]:
             sublist.insert(i+1, f"{sublist[i][0]}{int(sublist[i][1:])+1}")
@@ -105,7 +103,7 @@ def get_courses(ws_source, group_col):
     for course in courses_list:
         if course.find(" (") != -1:
             index = course.find(" (")
-            first_part = course[index:]
+            first_part = course[index+1:]
             
             index = first_part.find(" s\n")
             end_index = first_part.rfind(" ")
@@ -113,17 +111,26 @@ def get_courses(ws_source, group_col):
             string = first_part[:index+3] + last_part
             string = string.replace('(', '')
             string = string.replace(')', '')
+            string = string.upper()
+            index = string.find(" S\n ")
+            string = string[:index+1] + string[index+1].lower() + string[index+2:]
             modified_courses.update({string:courses_list[course]})
         else:
             if course.find(" i ") != -1:
-                index = course.find(" i ")
-                end_index = course.rfind(" ")
-                modified_courses.update({course[:index+2] + course[end_index:]:courses_list[course]})
+                string = course.upper()
+                index = string.find(" I ")
+                string =string[:index+1] + string[index+1].lower() + string[index+2:]
+                index = string.find(" i ")
+                end_index = string.rfind(" ")
+                modified_courses.update({string[:index+2] + "\n" + string[end_index:]:courses_list[course]})
             
-            elif course.find("p p ") != -1:
-                index = course.find("p p ")
-                end_index = course.rfind(" ")
-                modified_courses.update({course[:index+3] + course[end_index:]:courses_list[course]})
+            elif course.find(" p p ") != -1:
+                string = course.upper()
+                index = string.find(" P P ")
+                string = string[:index+3] + string[index+3].lower() + string[index+4:]
+                index = string.find(" p ")
+                end_index = string.rfind(" ")
+                modified_courses.update({string[:index+2] + "\n" + string[end_index:]:courses_list[course]})
 
 
     return modified_courses
@@ -145,6 +152,9 @@ def get_cells(ws_source, group_col):
             index = cell.rfind(" ")
             first_index = cell.find("l ")
             string = cell[:first_index+3] + cell[index:]
+            string = string.upper()
+            index = string.find(" S ")
+            string = string[:index+1] + string[index+1].lower() + "\n" + string[index+2:]
             modified_cell.update({string:cells_list[cell]})
 
     return modified_cell
@@ -167,6 +177,55 @@ def get_weekdays(ws_source):
                 weekdays[source_cell_value] = ro
 
     return weekdays
+
+
+def set_format_cells(ws_personal):
+
+    for ro in range(2, ws_personal.max_row+1):
+        for col in range(1, ws_personal.max_column+1):
+            personal_cell = ws_personal.cell(row=ro, column=col)
+            personal_cell.alignment = openpyxl.styles.Alignment(wrap_text=True, horizontal='center', vertical='center')
+
+
+def set_colors(ws_personal, cells_list, courses_list):
+    colors = ["808000", "800000", "008000", "336666", "997a8d", "e3c5c5", "ffa382", "b4f478", "ff9326", "c4acbe"]
+    
+    groups = {color: [] for color in colors}
+
+
+    for ro in range(2, ws_personal.max_row+1):
+        for col in range(2, ws_personal.max_column+1):
+            personal_cell = ws_personal.cell(row=ro, column=col)
+            personal_cell_value = str(personal_cell.value)            
+
+            if not personal_cell_value or personal_cell_value == "None":
+                continue
+
+                # Try to find an existing group with matching prefix
+            for color, value_list in groups.items():
+                if len(value_list) == 0:
+                    value_list.append(personal_cell_value)
+                    break
+                elif len(value_list) < 3:
+                    if value_list[0][:3] == personal_cell_value[:3]:
+                        value_list.append(personal_cell_value)
+                        break
+    
+    for color, value_list in groups.items():
+
+        for ro in range(2, ws_personal.max_row+1):
+            for col in range(2, ws_personal.max_column+1):
+                personal_cell = ws_personal.cell(row=ro, column=col)
+                personal_cell_value = str(personal_cell.value)       
+
+                for value in value_list:
+                    if value == personal_cell_value:
+                        personal_cell.fill = openpyxl.styles.PatternFill(start_color=color, end_color=color, fill_type='solid')
+
+
+    
+    print(groups)
+
 
 def extract_table():
     
@@ -245,6 +304,7 @@ def merge_final_cells(ws_personal):
                         ws_personal.merge_cells(start_row=ro, start_column=col, end_row=ro+1, end_column=col)
                         ro = ro + 1
 
+
 def create_table(ws_source, courses_list, cells_list, group_col, weekdays):
     #create the workbook
     wb_personal = openpyxl.Workbook()
@@ -295,6 +355,8 @@ def create_table(ws_source, courses_list, cells_list, group_col, weekdays):
     merge_final_cells(ws_personal)
     merge_final_cells(ws_personal)
 
+    set_format_cells(ws_personal)
+    set_colors(ws_personal, cells_list, courses_list)
 
     return wb_personal
 
