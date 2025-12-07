@@ -3,8 +3,6 @@ import requests
 import openpyxl
 import openpyxl.styles
 from openpyxl.utils import get_column_letter
-from copy import copy
-
 
 def get_file():
     #this is the website from which I download the file (spreadsheet)
@@ -403,5 +401,5 @@ def main():
     get_file()
     extract_table()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

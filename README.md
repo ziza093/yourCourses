@@ -1,5 +1,5 @@
 # yourCourses
-An small app which takes the uni table and extract only the courses your class should attend.
+A small app which takes the uni table and extract only the courses your class should attend.
 
 To run the program I suggest you clone the repository. Create a python virtual enviroment.
 Install there the libraries you need to run the code. And then you are good to go.
@@ -27,6 +27,9 @@ Feel free to do it whatever mode you want to.
 --- suggestion ---
 * pip3 install requests
 * pip3 install openpyxl
+
+-- or just install them from the requirements file --
+* pip install -r requirements.txt
 
 4. run the program
 
