@@ -7,7 +7,7 @@ HOW TO RUN:
 
 1. Build the docker image
 ```Docker
-docker build -t `yourname`
+docker build -t `yourname` .
 ```
 2. Run the docker image
 ```Docker
