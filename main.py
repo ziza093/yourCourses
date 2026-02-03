@@ -3,6 +3,8 @@ import requests
 import openpyxl
 import openpyxl.styles
 from openpyxl.utils import get_column_letter
+from copy import copy
+
 
 def get_file():
     #this is the website from which I download the file (spreadsheet)
@@ -70,6 +72,8 @@ def merged_cells_sublists(merged_cells_list):
 
 def get_group_col(ws_source):
 
+    group_col = None
+
     print(f"Choose an group/class")
     group_name = input()
 
@@ -81,6 +85,9 @@ def get_group_col(ws_source):
             if source_cell_value == group_name.lower():
                 group_col = source_cell.column
 
+    if group_col is None:
+        raise ValueError("Group not in the sheet!")
+    
     return group_col
 
 
@@ -93,7 +100,13 @@ def get_courses(ws_source, group_col):
             source_cell = ws_source.cell(row=ro, column=col)
             source_cell_value = str(source_cell.value).lower()
             if "c s" in source_cell_value or "p p" in source_cell_value or "p i" in source_cell_value:
-                courses_list.update({source_cell_value:ro})                
+                # Store both the row and the fill (color)
+                courses_list.update({
+                    source_cell_value: {
+                        'row': ro, 
+                        'fill': copy(source_cell.fill)
+                    }
+                })               
 
 
     #modify the courses_list so that i have the final form of the courses string
@@ -141,7 +154,12 @@ def get_cells(ws_source, group_col):
         source_cell_value = str(source_cell.value).lower()
 
         if source_cell_value:
-            cells_list.update({source_cell_value:ro})
+            cells_list.update({
+                source_cell_value: {
+                    'row': ro, 
+                    'fill': copy(source_cell.fill)
+                }
+            })
 
     #modify the cells_list so that i have the final form of the courses string
     modified_cell = {}
@@ -184,41 +202,6 @@ def set_format_cells(ws_personal):
             personal_cell = ws_personal.cell(row=ro, column=col)
             personal_cell.alignment = openpyxl.styles.Alignment(wrap_text=True, horizontal='center', vertical='center')
 
-
-def set_colors(ws_personal, cells_list, courses_list):
-    colors = ["91a567", "f9f3b2", "414931", "b0936e", "b06e6e", "0190ba", "4e2031", "99dfbd", "f4eeee", "f1e5bc"]
-    
-    groups = {color: [] for color in colors}
-
-
-    for ro in range(2, ws_personal.max_row+1):
-        for col in range(2, ws_personal.max_column+1):
-            personal_cell = ws_personal.cell(row=ro, column=col)
-            personal_cell_value = str(personal_cell.value)            
-
-            if not personal_cell_value or personal_cell_value == "None":
-                continue
-
-                # Try to find an existing group with matching prefix
-            for color, value_list in groups.items():
-                if len(value_list) == 0:
-                    value_list.append(personal_cell_value)
-                    break
-                elif len(value_list) < 3:
-                    if value_list[0][:3] == personal_cell_value[:3]:
-                        value_list.append(personal_cell_value)
-                        break
-    
-    for color, value_list in groups.items():
-
-        for ro in range(2, ws_personal.max_row+1):
-            for col in range(2, ws_personal.max_column+1):
-                personal_cell = ws_personal.cell(row=ro, column=col)
-                personal_cell_value = str(personal_cell.value)       
-
-                for value in value_list:
-                    if value == personal_cell_value:
-                        personal_cell.fill = openpyxl.styles.PatternFill(start_color=color, end_color=color, fill_type='solid')
 
 
 def extract_table():
@@ -265,23 +248,43 @@ def extract_table():
 
 
 def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekdays, week_col):
-    #create monday column(using courses and projects)
-    for course in courses_list:
-        if int(courses_list[course]) >= int(weekdays[weekday]) and int(courses_list[course] <= int(weekdays[weekday]) + 11):
-            if courses_list[course] == weekdays[weekday]:
-                ws_personal.cell(row=2, column=week_col).value = course    
-            else:
-                hour = 2 + int(courses_list[course]) - int(weekdays[weekday])
-                ws_personal.cell(row=hour, column=week_col).value = course
+    
+    # Helper function to write data and style
+    def write_cell(target_row, target_col, text, fill_obj):
+        cell = ws_personal.cell(row=target_row, column=target_col)
+        cell.value = text
+        cell.fill = fill_obj
 
-    #creating monday column(using the labs and the rest)
-    for cell in cells_list:
-        if int(cells_list[cell]) >= int(weekdays[weekday]) and int(cells_list[cell] <= int(weekdays[weekday]) + 11):
-            if cells_list[cell] == weekdays[weekday]:
-                ws_personal.cell(row=2, column=week_col).value = cell    
+    # --- Process Courses ---
+    for course_name, data in courses_list.items():
+        # access data['row'] instead of just data
+        course_row = int(data['row']) 
+        weekday_row = int(weekdays[weekday])
+        
+        if course_row >= weekday_row and course_row <= weekday_row + 11:
+            target_row = 0
+            if course_row == weekday_row:
+                target_row = 2
             else:
-                hour = 2 + int(cells_list[cell]) - int(weekdays[weekday])
-                ws_personal.cell(row=hour, column=week_col).value = cell
+                target_row = 2 + course_row - weekday_row
+            
+            # Write value AND color
+            write_cell(target_row, week_col, course_name, data['fill'])
+
+    # --- Process Labs/Seminars (Cells) ---
+    for cell_name, data in cells_list.items():
+        cell_row = int(data['row'])
+        weekday_row = int(weekdays[weekday])
+
+        if cell_row >= weekday_row and cell_row <= weekday_row + 11:
+            target_row = 0
+            if cell_row == weekday_row:
+                target_row = 2
+            else:
+                target_row = 2 + cell_row - weekday_row
+            
+            # Write value AND color
+            write_cell(target_row, week_col, cell_name, data['fill'])
 
 
 def merge_final_cells(ws_personal):
@@ -312,30 +315,39 @@ def remove_unwanted_cells(cells_list, courses_list):
     choice = input()
 
     while choice == "CONTINUE":
+        keys_cells = list(cells_list.keys())
+        keys_courses = list(courses_list.keys())
+
+        total_items = []
+
         i=0
+        print("\nLabs/Seminars\n")
         for key in cells_list:
             i = i+1
             print(f"{i}. {key}")
+            total_items.append(('cell', key))
 
+        print("\nCourses\n")
         for key in courses_list:
             i = i+1
             print(f"{i}. {key}")
+            total_items.append(('course', key))
             
-        print("Select which cell to delete!")
-        j = int(input())
+        print("Select which number to delete!")
+        try:
+            j = int(input())
+            if 1 <= j <= len(total_items):
+                type_to_del, key_to_del = total_items[j-1]
 
-        i=0
-        for key in cells_list:
-            i=i+1
-            if i == j:
-                cells_list.pop(key)
-                break
-
-        for key in courses_list:
-            i=i+1
-            if i == j:
-                courses_list.pop(key)
-                break
+                if type_to_del == 'cell':
+                    cells_list.pop(key_to_del)
+                else:
+                    courses_list.pop(key_to_del)
+                print(f"Deleted: {key_to_del}")
+            else:
+                print("Invalid number!") 
+        except ValueError:
+            print("Please enter a valid number!")
         
         print("If you want to save the rest of the remaining cells, quit by writing 'EXIT'")
         print("If you wanna keep going, write 'CONTINUE'")
@@ -375,7 +387,12 @@ def create_table(courses_list, cells_list, weekdays):
 
     
     for i in range(1, 7):
-        size = len(str(ws_personal.cell(row=1, column=i).value))
+        #first column 
+        if i == 1:
+            size = 1
+        else:
+            size = len(str(ws_personal.cell(row=1, column=i).value))
+        
         letter = get_column_letter(i)
         ws_personal.column_dimensions[letter].width = (size + 2) * 1.2
 
@@ -393,7 +410,6 @@ def create_table(courses_list, cells_list, weekdays):
     merge_final_cells(ws_personal)
 
     set_format_cells(ws_personal)
-    set_colors(ws_personal, cells_list, courses_list)
 
     return wb_personal
 
