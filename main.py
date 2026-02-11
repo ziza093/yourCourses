@@ -5,6 +5,7 @@ import openpyxl.styles
 from openpyxl.utils import get_column_letter
 from copy import copy
 
+FORMATS = ["C s", "C p", "C i", "P s", "P p", "P i", "S s", "S p", "S i", "L s", "L i", "L p"]
 
 def get_file():
     #this is the website from which I download the file (spreadsheet)
@@ -43,52 +44,64 @@ def get_file():
         f.write(response.content)
 
 
-def merged_cells_sublists(merged_cells_list):
-
-    #expand the sublist of merged cells to include all the cells that are included in the merge
-    for sublist in merged_cells_list:
-        i = 0
-        while sublist[i][0] != sublist[-1][0]:
-            sublist.insert(i+1,f"{chr(ord(sublist[i][0])+1)}{sublist[i][1:]}")
-            i = i+1
-            if sublist[i][0] == sublist[-1][0]:
-                sublist.remove(sublist[i])
-
-        if sublist[i-1][1:] != sublist[-1][1:]:
-            sublist.insert(i, f"{sublist[-1][0]}{int(sublist[-1][1:])-1}")
-
-        i=0
-        while sublist[i][1:] != sublist[-1][1:]:
-            sublist.insert(i+1, f"{sublist[i][0]}{int(sublist[i][1:])+1}")
-            i = i+2
-            
-            if sublist[i][1:] == sublist[-1][1:]:
-                sublist.remove(sublist[i])
-
-            if i == len(sublist):
-                i = i-1
-
-    return merged_cells_list
-
 def get_group_col(ws_source):
 
     group_col = None
+    while group_col is None:
+        try:
+            print(f"Choose an group/class")
+            group_name = input()
 
-    print(f"Choose an group/class")
-    group_name = input()
+            for ro in range(1, ws_source.max_row):
+                for col in range(1, ws_source.max_column):
+                    source_cell = ws_source.cell(row=ro, column=col)
+                    source_cell_value = str(source_cell.value).lower()
 
-    for ro in range(1, ws_source.max_row):
-        for col in range(1, ws_source.max_column):
-            source_cell = ws_source.cell(row=ro, column=col)
-            source_cell_value = str(source_cell.value).lower()
+                    if source_cell_value == group_name.lower():
+                        group_col = source_cell.column
 
-            if source_cell_value == group_name.lower():
-                group_col = source_cell.column
-
-    if group_col is None:
-        raise ValueError("Group not in the sheet!")
+        except ValueError("Group not in the sheet!"):
+            print(f"Try again!")
+            group_name = input()
     
     return group_col
+
+
+
+def parse_format(index, name):     
+    #extract all the words from the course/project/seminar
+    parts = name.split(FORMATS[index])
+    parts[0] = parts[0].split()
+    parts[1] = parts[1].split()    
+
+    #the room is the last word of the second list
+    room = parts[1][-1]
+    #the course name is the last word of the first list
+    course_name = parts[0][-1]
+    # #get the word with the course name in the paranthesis
+    # for part in parts:
+    #     if '(' in part:
+    #         course_name = part
+    #         break
+    
+    #go through word and extract the one before the frequency
+    # print(f"parts: {parts}")
+    # if course_name == "":
+    #     for i in range(0, len(parts)):
+    #         # if FORMATS[index] parts[i]
+    #         pass
+    
+    #remove the paranthesis (BD)
+    if course_name[0] == '(' and course_name[-1] == ')':
+        course_name = course_name[1:]
+        course_name = course_name[:len(course_name)-1]
+
+    frequency = FORMATS[index]
+    frequency[2].lower()
+
+    new_name = f"{course_name.upper()} {frequency}\n{room.upper()}"
+
+    return new_name
 
 
 def get_courses(ws_source, group_col):
@@ -96,63 +109,52 @@ def get_courses(ws_source, group_col):
     courses_list = {}
 
     for ro in range(1, ws_source.max_row):
-        for col in range(1, group_col):
+        for col in range(1, group_col + 1):
             source_cell = ws_source.cell(row=ro, column=col)
-            source_cell_value = str(source_cell.value).lower()
-            if "c s" in source_cell_value or "p p" in source_cell_value or "p i" in source_cell_value:
-                # Store both the row and the fill (color)
-                courses_list.update({
-                    source_cell_value: {
-                        'row': ro, 
-                        'fill': copy(source_cell.fill)
-                    }
-                })               
+            source_cell_value = str(source_cell.value)
+            
+            for form in FORMATS:
+                if form in source_cell_value:
+                    #check if this cell is merged and if the merge includes group_col
+                    cell_coord = source_cell.coordinate
+                    is_in_merged_range = False
+                    
+                    for merged_range in ws_source.merged_cells.ranges:
+                        if cell_coord in merged_range:
+                            #check if group_col is within this merged range
+                            if merged_range.min_col <= group_col <= merged_range.max_col:
+                                is_in_merged_range = True
+                            break
+                    
+                    # Add only if: merged and includes group_col, OR not merged and is group_col
+                    if is_in_merged_range or col == group_col:
+                        courses_list.update({
+                            source_cell_value: {
+                                'row': ro, 
+                                'fill': copy(source_cell.fill)
+                            }
+                        })     
+                        #dont duplicate the same course          
+                        break      
 
 
     #modify the courses_list so that i have the final form of the courses string
     modified_courses = {}
     for course in courses_list:
-        if course.find(" (") != -1:
-            index = course.find(" (")
-            first_part = course[index+1:]
-            
-            index = first_part.find(" s\n")
-            end_index = first_part.rfind(" ")
-            last_part = first_part[end_index:]
-            string = first_part[:index+3] + last_part
-            string = string.replace('(', '')
-            string = string.replace(')', '')
-            string = string.upper()
-            index = string.find(" S\n ")
-            string = string[:index+1] + string[index+1].lower() + string[index+2:]
-            modified_courses.update({string:courses_list[course]})
-        else:
-            if course.find(" i ") != -1:
-                string = course.upper()
-                index = string.find(" I ")
-                string =string[:index+1] + string[index+1].lower() + string[index+2:]
-                index = string.find(" i ")
-                end_index = string.rfind(" ")
-                modified_courses.update({string[:index+2] + "\n" + string[end_index:]:courses_list[course]})
-            
-            elif course.find(" p p ") != -1:
-                string = course.upper()
-                index = string.find(" P P ")
-                string = string[:index+3] + string[index+3].lower() + string[index+4:]
-                index = string.find(" p ")
-                end_index = string.rfind(" ")
-                modified_courses.update({string[:index+2] + "\n" + string[end_index:]:courses_list[course]})
-
+        for index in range(0, len(FORMATS)):
+            if FORMATS[index] in course and course not in modified_courses:
+                parsed_string = parse_format(index, course)
+                modified_courses.update({parsed_string:courses_list[course]})
 
     return modified_courses
+
 
 def get_cells(ws_source, group_col):
     cells_list = {}
 
     for ro in range(1, ws_source.max_row):
         source_cell = ws_source.cell(row=ro, column=group_col)
-        source_cell_value = str(source_cell.value).lower()
-
+        source_cell_value = str(source_cell.value)
         if source_cell_value:
             cells_list.update({
                 source_cell_value: {
@@ -164,14 +166,10 @@ def get_cells(ws_source, group_col):
     #modify the cells_list so that i have the final form of the courses string
     modified_cell = {}
     for cell in cells_list:
-        if cell.find(" l ") != -1:
-            index = cell.rfind(" ")
-            first_index = cell.find("l ")
-            string = cell[:first_index+3] + cell[index:]
-            string = string.upper()
-            index = string.find(" S ")
-            string = string[:index+1] + string[index+1].lower() + "\n" + string[index+2:]
-            modified_cell.update({string:cells_list[cell]})
+        for index in range(0, len(FORMATS)):
+            if FORMATS[index] in cell and cell not in modified_cell:
+                parsed_string = parse_format(index, cell)
+                modified_cell.update({parsed_string:cells_list[cell]})
 
     return modified_cell
 
@@ -179,6 +177,7 @@ def get_weekdays(ws_source):
     weekdays = {
     "luni" : [],
     "marți" : [],
+    "marti" : [],
     "miercuri" : [],
     "joi" : [],
     "vineri": []
@@ -248,7 +247,6 @@ def extract_table():
 
 
 def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekdays, week_col):
-    
     # Helper function to write data and style
     def write_cell(target_row, target_col, text, fill_obj):
         cell = ws_personal.cell(row=target_row, column=target_col)
@@ -257,7 +255,6 @@ def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekda
 
     # --- Process Courses ---
     for course_name, data in courses_list.items():
-        # access data['row'] instead of just data
         course_row = int(data['row']) 
         weekday_row = int(weekdays[weekday])
         
@@ -394,11 +391,15 @@ def create_table(courses_list, cells_list, weekdays):
             size = len(str(ws_personal.cell(row=1, column=i).value))
         
         letter = get_column_letter(i)
-        ws_personal.column_dimensions[letter].width = (size + 2) * 1.2
+        ws_personal.column_dimensions[letter].width = (size + 2) * 1.5
 
     
     add_personal_all_data(ws_personal, "luni", courses_list, cells_list, weekdays, 2)
-    add_personal_all_data(ws_personal, "marți", courses_list, cells_list, weekdays, 3)
+    try:
+        add_personal_all_data(ws_personal, "marți", courses_list, cells_list, weekdays, 3)
+    except:
+        add_personal_all_data(ws_personal, "marti", courses_list, cells_list, weekdays, 3)
+
     add_personal_all_data(ws_personal, "miercuri", courses_list, cells_list, weekdays, 4)
     add_personal_all_data(ws_personal, "joi", courses_list, cells_list, weekdays, 5)
     add_personal_all_data(ws_personal, "vineri", courses_list, cells_list, weekdays, 6)
