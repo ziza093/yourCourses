@@ -70,14 +70,34 @@ def get_group_col(ws_source):
 
 def parse_format(index, name):     
     #extract all the words from the course/project/seminar
-    parts = name.split(FORMATS[index])
-    parts[0] = parts[0].split()
-    parts[1] = parts[1].split()    
+    try:
+        parts = name.split(FORMATS[index])
 
-    #the room is the last word of the second list
-    room = parts[1][-1]
-    #the course name is the last word of the first list
-    course_name = parts[0][-1]
+        parts[0] = parts[0].split()
+        parts[1] = parts[1].split()    
+    
+        #the room is the last word of the second list
+        room = parts[1][-1]
+        #the course name is the last word of the first list
+        course_name = parts[0][-1]
+    
+        #remove the paranthesis (BD)
+        if course_name[0] == '(' and course_name[-1] == ')':
+            course_name = course_name[1:]
+            course_name = course_name[:len(course_name)-1]
+
+        frequency = FORMATS[index]
+        frequency[2].lower()
+
+        new_name = f"{course_name.upper()} {frequency}\n{room.upper()}"
+
+        return new_name
+    
+    except IndexError:
+        print(f"Could not parse: {parts}")
+
+    
+    return None
     # #get the word with the course name in the paranthesis
     # for part in parts:
     #     if '(' in part:
@@ -90,18 +110,7 @@ def parse_format(index, name):
     #     for i in range(0, len(parts)):
     #         # if FORMATS[index] parts[i]
     #         pass
-    
-    #remove the paranthesis (BD)
-    if course_name[0] == '(' and course_name[-1] == ')':
-        course_name = course_name[1:]
-        course_name = course_name[:len(course_name)-1]
 
-    frequency = FORMATS[index]
-    frequency[2].lower()
-
-    new_name = f"{course_name.upper()} {frequency}\n{room.upper()}"
-
-    return new_name
 
 
 def get_courses(ws_source, group_col):
@@ -144,7 +153,8 @@ def get_courses(ws_source, group_col):
         for index in range(0, len(FORMATS)):
             if FORMATS[index] in course and course not in modified_courses:
                 parsed_string = parse_format(index, course)
-                modified_courses.update({parsed_string:courses_list[course]})
+                if parsed_string is not None:
+                    modified_courses.update({parsed_string:courses_list[course]})
 
     return modified_courses
 
@@ -169,7 +179,8 @@ def get_cells(ws_source, group_col):
         for index in range(0, len(FORMATS)):
             if FORMATS[index] in cell and cell not in modified_cell:
                 parsed_string = parse_format(index, cell)
-                modified_cell.update({parsed_string:cells_list[cell]})
+                if parsed_string is not None:
+                    modified_cell.update({parsed_string:cells_list[cell]})
 
     return modified_cell
 
@@ -234,19 +245,19 @@ def extract_table():
     cells_list = get_cells(ws_source, group_col)
 
     #have the choice to delete unwanted courses from there
-    remove_unwanted_cells(cells_list, courses_list)
+    remove_unwanted_cells(courses_list)
 
     #extract the weekdays positions
     weekdays = get_weekdays(ws_source)
 
     #create the workbook
-    wb_personal = create_table(courses_list, cells_list, weekdays)
+    wb_personal = create_table(courses_list, weekdays)
 
     #save to file
     wb_personal.save("table.xlsx")
 
 
-def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekdays, week_col):
+def add_personal_all_data(ws_personal, weekday, courses_list, weekdays, week_col):
     # Helper function to write data and style
     def write_cell(target_row, target_col, text, fill_obj):
         cell = ws_personal.cell(row=target_row, column=target_col)
@@ -268,21 +279,6 @@ def add_personal_all_data(ws_personal, weekday, courses_list, cells_list, weekda
             # Write value AND color
             write_cell(target_row, week_col, course_name, data['fill'])
 
-    # --- Process Labs/Seminars (Cells) ---
-    for cell_name, data in cells_list.items():
-        cell_row = int(data['row'])
-        weekday_row = int(weekdays[weekday])
-
-        if cell_row >= weekday_row and cell_row <= weekday_row + 11:
-            target_row = 0
-            if cell_row == weekday_row:
-                target_row = 2
-            else:
-                target_row = 2 + cell_row - weekday_row
-            
-            # Write value AND color
-            write_cell(target_row, week_col, cell_name, data['fill'])
-
 
 def merge_final_cells(ws_personal):
     for col in range(2, ws_personal.max_column + 1):
@@ -299,7 +295,7 @@ def merge_final_cells(ws_personal):
                         ro = ro + 1
 
 
-def remove_unwanted_cells(cells_list, courses_list):
+def remove_unwanted_cells(courses_list):
 
     print("Do you want to remove some of the contents of your table?")
     print("Type YES if so, otherwise type NO")
@@ -312,46 +308,43 @@ def remove_unwanted_cells(cells_list, courses_list):
     choice = input()
 
     while choice == "CONTINUE":
-        keys_cells = list(cells_list.keys())
-        keys_courses = list(courses_list.keys())
-
         total_items = []
 
         i=0
-        print("\nLabs/Seminars\n")
-        for key in cells_list:
-            i = i+1
-            print(f"{i}. {key}")
-            total_items.append(('cell', key))
-
-        print("\nCourses\n")
+        print("Contents:\n")
         for key in courses_list:
             i = i+1
             print(f"{i}. {key}")
-            total_items.append(('course', key))
-            
+            total_items.append((key))
+        
+        print(total_items)
+
         print("Select which number to delete!")
         try:
             j = int(input())
             if 1 <= j <= len(total_items):
-                type_to_del, key_to_del = total_items[j-1]
-
-                if type_to_del == 'cell':
-                    cells_list.pop(key_to_del)
-                else:
-                    courses_list.pop(key_to_del)
+                key_to_del = total_items[j-1]
+                courses_list.pop(key_to_del)
                 print(f"Deleted: {key_to_del}")
             else:
                 print("Invalid number!") 
         except ValueError:
             print("Please enter a valid number!")
         
+        print("The updated list:")
+        print("Contents:\n")
+        i=0
+        for key in courses_list:
+            i = i+1
+            print(f"{i}. {key}")
+            total_items.append(('course', key))
+
         print("If you want to save the rest of the remaining cells, quit by writing 'EXIT'")
         print("If you wanna keep going, write 'CONTINUE'")
         choice = input()
 
 
-def create_table(courses_list, cells_list, weekdays):
+def create_table(courses_list, weekdays):
     #create the workbook
     wb_personal = openpyxl.Workbook()
 
@@ -394,15 +387,15 @@ def create_table(courses_list, cells_list, weekdays):
         ws_personal.column_dimensions[letter].width = (size + 2) * 1.5
 
     
-    add_personal_all_data(ws_personal, "luni", courses_list, cells_list, weekdays, 2)
+    add_personal_all_data(ws_personal, "luni", courses_list, weekdays, 2)
     try:
-        add_personal_all_data(ws_personal, "marți", courses_list, cells_list, weekdays, 3)
+        add_personal_all_data(ws_personal, "marți", courses_list, weekdays, 3)
     except:
-        add_personal_all_data(ws_personal, "marti", courses_list, cells_list, weekdays, 3)
+        add_personal_all_data(ws_personal, "marti", courses_list, weekdays, 3)
 
-    add_personal_all_data(ws_personal, "miercuri", courses_list, cells_list, weekdays, 4)
-    add_personal_all_data(ws_personal, "joi", courses_list, cells_list, weekdays, 5)
-    add_personal_all_data(ws_personal, "vineri", courses_list, cells_list, weekdays, 6)
+    add_personal_all_data(ws_personal, "miercuri", courses_list, weekdays, 4)
+    add_personal_all_data(ws_personal, "joi", courses_list, weekdays, 5)
+    add_personal_all_data(ws_personal, "vineri", courses_list, weekdays, 6)
 
     merge_final_cells(ws_personal)
     merge_final_cells(ws_personal)
